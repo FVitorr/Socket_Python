@@ -2,60 +2,61 @@ import socket
 import tqdm
 import os
 
-class clientOn:
-    def __init__(self) -> None:
-        self.SEPARATOR = "<SEPERATOR>"
-        host = '0.tcp.sa.ngrok.io'     # Endereco IP do Servidor
-        porta = 11984            # Porta que o Servidor esta
+class ClientOn:
+    def __init__(self, HOST = '127.0.0.1', PORT = 1451 ) -> None:
+        self.SEPARATOR = "<SEPARATOR>"
+        self.HOST = HOST  # Endereço IP do Servidor
+        self.PORT = PORT             # Porta que o Servidor está
         self.BUFFER_SIZE = 4096
 
-
         self.tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        dest = (host, porta)
+        dest = (self.HOST, self.PORT)
         self.tcp.connect(dest)
+        print(f"[+] Connected to {self.HOST}:{self.PORT}")
 
-
-    def send_file(self,filename,file_size):
+    def send_file(self, filename):
         con = self.tcp
-        con.send (f"{filename}{self.SEPARATOR}{file_size}".encode())
-        print("<- CRTL-X end connecting ->")
+        file_size = os.path.getsize(filename)
+        con.send(f"{filename}{self.SEPARATOR}{file_size}".encode())
+        print(f"<- Sending file {filename} ->")
 
-        # start sending the file
+        # Inicializa a barra de progresso
         progress = tqdm.tqdm(range(file_size), f"Sending {filename}", unit="B", unit_scale=True, unit_divisor=1024)
         with open(filename, "rb") as f:
             while True:
-                # read the bytes from the file
                 bytes_read = f.read(self.BUFFER_SIZE)
                 if not bytes_read:
-                    # file transmitting is done
                     break
-                # we use sendall to assure transimission in 
-                # busy networks
                 con.sendall(bytes_read)
-                # update the progress bar
                 progress.update(len(bytes_read))
-        # close the socket
 
-    def recived_file(self):
-        con = self.con        
-        received  = con.recv(self.BUFFER_SIZE).decode()
+        print(f"[+] File {filename} sent successfully.")
+        con.close()
+
+    def receive_file(self):
+        con = self.tcp        
+        received = con.recv(self.BUFFER_SIZE).decode()
         filename, filesize = received.split(self.SEPARATOR)
         filename = os.path.basename(filename)
         filesize = int(filesize)
-        # start receiving the file from the socket
-        # and writing to the file stream
+
+        # Inicializa a barra de progresso
         progress = tqdm.tqdm(range(filesize), f"Receiving {filename}", unit="B", unit_scale=True, unit_divisor=1024)
         with open(filename, "wb") as f:
             while True:
-                # read 1024 bytes from the socket (receive)
-                bytes_read = con.recv(BUFFER_SIZE)
-                if not bytes_read:    
-                    # nothing is received
-                    # file transmitting is done
+                bytes_read = con.recv(self.BUFFER_SIZE)
+                if not bytes_read:
                     break
-                # write to the file the bytes we just received
                 f.write(bytes_read)
-                # update the progress bar
-                #progress.update(len(bytes_read))
+                progress.update(len(bytes_read))
 
-        # close the client socket
+        print(f"[+] File {filename} received successfully.")
+        con.close()
+
+# Exemplo de uso
+if __name__ == "__main__":
+    client = ClientOn()
+    # Para enviar um arquivo:
+    # client.send_file("path/to/file")
+    # Para receber um arquivo:
+    client.receive_file()
